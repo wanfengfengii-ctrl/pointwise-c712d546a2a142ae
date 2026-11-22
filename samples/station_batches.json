@@ -1,0 +1,22 @@
+[
+  {
+    "station": "青河桥东",
+    "batch_id": "QH-A",
+    "volume": "old",
+    "rows": [
+      {"line": 1, "project": "铜检", "concentration": 7},
+      {"line": 2, "project": "锌检", "concentration": 11}
+    ]
+  },
+  {
+    "station": "青河下游",
+    "batch_id": "QH-B",
+    "volume": "downstream",
+    "rows": [
+      {"line": 9, "project": "铜检", "concentration": 7},
+      {"line": 3, "project": "铜检", "concentration": 7},
+      {"line": 12, "project": "铜检", "concentration": null},
+      {"line": 5, "project": "铜检", "concentration": 0}
+    ]
+  }
+]

@@ -1,0 +1,8 @@
+{
+  "replace": ["old"],
+  "moves": [
+    {"source": ["old", 0], "target": ["copper", 1]},
+    {"source": ["old", 1], "target": ["zinc", 0]}
+  ],
+  "offline": "zinc"
+}

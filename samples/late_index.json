@@ -1,0 +1,7 @@
+{
+  "first_receipt_count": 1,
+  "claims": [
+    {"volume": "old", "slot": 0, "project": "铜检"},
+    {"volume": "old", "slot": 1, "project": "锌检"}
+  ]
+}
