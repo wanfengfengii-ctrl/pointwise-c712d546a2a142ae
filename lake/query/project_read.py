@@ -18,9 +18,9 @@ def read_project(db: sqlite3.Connection, day_id: int, project: str) -> ProjectRe
         catalog = LayoutCatalog(db)
         manifest = catalog.current(day_id)
         accepted = EvidenceBook(db).accepted_for_day(day_id)
-        transfers = catalog.transfers_for_day(day_id)
+        moves = catalog.moves_for_day(day_id)
         try:
-            coverage = classify_coverage(manifest, accepted, transfers, project)
+            coverage = classify_coverage(manifest, accepted, moves, project)
         except CoverageIntegrityError:
             return ProjectResult(ReadStatus.INTEGRITY_ERROR)
         candidates = select_candidate_volumes(manifest, coverage)

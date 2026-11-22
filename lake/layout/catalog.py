@@ -34,6 +34,16 @@ class LayoutCatalog:
             )
         ''')
         self.db.execute('''
+            CREATE TABLE IF NOT EXISTS slot_moves (
+                day_id INTEGER NOT NULL REFERENCES frozen_days(day_id),
+                source_volume TEXT NOT NULL,
+                source_slot INTEGER NOT NULL CHECK (source_slot >= 0),
+                target_volume TEXT NOT NULL,
+                target_slot INTEGER NOT NULL CHECK (target_slot >= 0),
+                PRIMARY KEY (day_id, source_volume, source_slot)
+            )
+        ''')
+        self.db.execute('''
             CREATE TABLE IF NOT EXISTS volume_transfers (
                 day_id INTEGER NOT NULL REFERENCES frozen_days(day_id),
                 source_volume TEXT NOT NULL REFERENCES volume_registry(volume),
@@ -103,6 +113,11 @@ class LayoutCatalog:
         return manifest
 
     def record_moves(self, day_id: int, moves: Iterable[tuple[SlotAddress, SlotAddress]]) -> None:
+        moves = tuple(moves)
+        self.db.executemany('''
+            INSERT INTO slot_moves (day_id, source_volume, source_slot, target_volume, target_slot)
+            VALUES (?, ?, ?, ?, ?)
+        ''', ((day_id, source.volume, source.slot, target.volume, target.slot) for source, target in moves))
         counts = Counter((source.volume, target.volume) for source, target in moves)
         self.db.executemany('''
             INSERT INTO volume_transfers (day_id, source_volume, target_volume, row_count)
@@ -110,11 +125,6 @@ class LayoutCatalog:
         ''', ((day_id, source, target, count) for (source, target), count in counts.items()))
 
     def moves_for_day(self, day_id: int) -> dict[SlotAddress, SlotAddress]:
-        legacy = self.db.execute('''
-            SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'slot_moves'
-        ''').fetchone()
-        if legacy is None:
-            return {}
         rows = self.db.execute('''
             SELECT source_volume, source_slot, target_volume, target_slot
             FROM slot_moves WHERE day_id = ?

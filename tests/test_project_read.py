@@ -174,3 +174,47 @@ class ProjectReadTests(LakeCase):
         register_index(self.db, IndexArtifact(order.work_id, day.day_id, artifact.claims[1:]))
         ReadabilityStore(self.db).set_readable("old", False)
         self.assert_read(day.day_id, "铜检", (), status=ReadStatus.PENDING, volume="old")
+
+    def test_claim_follows_recorded_slot_number_change(self):
+        # incident: old:0 copper -> copper:1, old:1 zinc -> zinc:0.  A volume-only
+        # projection would look for copper at copper:0 and miss it.
+        day = self.pair()
+        order = issue_work(self.db, day.day_id, ("old",))
+        artifact = self.capture(order)
+        self.split(day.day_id)
+        self.assertEqual(retire_volumes(self.db, ("old",)), ("old",))
+        copper_claim, zinc_claim = artifact.claims
+        self.assertEqual((copper_claim.address, zinc_claim.address),
+                         (SlotAddress("old", 0), SlotAddress("old", 1)))
+        self.assertEqual(register_index(self.db, IndexArtifact(order.work_id, day.day_id, (copper_claim,))), 1)
+        ReadabilityStore(self.db).set_readable("zinc", False)
+        self.assert_read(day.day_id, "铜检", (), status=ReadStatus.PENDING, volume="zinc")
+        self.reopen()
+        self.assertEqual(register_index(self.db, IndexArtifact(order.work_id, day.day_id, (zinc_claim,))), 1)
+        self.assert_read(day.day_id, "铜检", (COPPER,))
+        self.assertEqual(self.db.execute('''
+            SELECT source_volume, source_slot, target_volume, target_slot FROM slot_moves ORDER BY source_slot
+        ''').fetchall(), [("old", 0, "copper", 1), ("old", 1, "zinc", 0)])
+
+    def test_reordered_slots_in_one_target_volume_keep_original_observations(self):
+        day = self.freeze((StationRow(4, "铜检", 7), StationRow(2, "锌检", 11)))
+        order = issue_work(self.db, day.day_id, ("old",))
+        artifact = self.capture(order)
+        repack_day(self.db, day.day_id, RepackPlan(("old",), (
+            (SlotAddress("old", 0), SlotAddress("packed", 9)),
+            (SlotAddress("old", 1), SlotAddress("packed", 2)),
+        )))
+        self.assertEqual(retire_volumes(self.db, ("old",)), ("old",))
+        self.assertEqual(LayoutCatalog(self.db).current(day.day_id).slots,
+                         (SlotAddress("packed", 2), SlotAddress("packed", 9)))
+        self.assertEqual(register_index(self.db, IndexArtifact(order.work_id, day.day_id, artifact.claims[:1])), 1)
+        ReadabilityStore(self.db).set_readable("packed", False)
+        self.assert_read(day.day_id, "铜检", (), status=ReadStatus.PENDING, volume="packed")
+        self.assertEqual(register_index(self.db, IndexArtifact(order.work_id, day.day_id, artifact.claims[1:])), 1)
+        ReadabilityStore(self.db).set_readable("packed", True)
+        self.assert_read(day.day_id, "铜检", (
+            (1, "青河桥东", "QH-A", 4, "铜检", 7),
+        ))
+        self.assert_read(day.day_id, "锌检", (
+            (2, "青河桥东", "QH-A", 2, "锌检", 11),
+        ))
